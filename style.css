@@ -920,6 +920,24 @@ input {
   max-width: 65ch;
 }
 
+.footer-privacy {
+  font-size: 0.82rem;
+  color: var(--ink);
+  line-height: 1.6;
+  margin: 0;
+  max-width: 85ch;
+}
+
+.footer-privacy a {
+  color: var(--up);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.footer-privacy a:hover {
+  color: var(--ink);
+}
+
 .footer-credits {
   font-size: 0.78rem;
   color: var(--slate);
