@@ -1601,3 +1601,33 @@ body.has-fullscreen-chart {
   flex-direction: column;
   gap: 1rem;
 }
+
+/* COMMENTS SECTION (Disqus) */
+.comments-section {
+  margin-top: var(--section-gap, 2rem);
+  padding: 1.6rem 2rem 2rem;
+  border-top: 1px solid var(--rule);
+  background: var(--paper);
+}
+
+.comments-inner {
+  max-width: 100%;
+}
+
+.comments-invitation {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--ink);
+  margin: 0 0 1.25rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 720px) {
+  .comments-section {
+    padding: 1.25rem 1rem 1.5rem;
+  }
+}
+
+.app-container.device-mode-mobile .comments-section {
+  padding: 1.25rem 1rem 1.5rem;
+}

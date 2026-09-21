@@ -1,4 +1,5 @@
 import { FACILITIES, FacilityEntry, SiteType } from './facilities';
+import { renderCommentsSection, initDisqus } from './comments';
 
 // Types
 interface Facility {
@@ -1248,6 +1249,9 @@ function render() {
   const root = document.getElementById('root');
   if (!root) return;
 
+  // Preserve existing #disqus_thread across re-renders to prevent iframe churn
+  const savedDisqusThread = document.getElementById('disqus_thread');
+
   const comp = state.selectedCompany;
   const symbol = comp ? comp.symbol : '—';
   const name = comp ? comp.name : 'Select a company';
@@ -1914,6 +1918,9 @@ function render() {
       <!-- NEWSLETTER SIGNUP · posts straight to Web3Forms, not through /api -->
       ${renderSignupSection()}
 
+      <!-- COMMENTS · Disqus single thread for visitor feedback -->
+      ${renderCommentsSection()}
+
       <!-- FOOTER -->
       <footer class="site-footer">
         <p class="footer-disclaimer">
@@ -1935,7 +1942,13 @@ function render() {
     </div>
   `;
 
+  const newDisqusThread = document.getElementById('disqus_thread');
+  if (savedDisqusThread && savedDisqusThread.hasChildNodes() && newDisqusThread && savedDisqusThread !== newDisqusThread) {
+    newDisqusThread.replaceWith(savedDisqusThread);
+  }
+
   attachEventListeners();
+  initDisqus();
 }
 
 // --- Price chart interaction (no charting library) ------------------------
