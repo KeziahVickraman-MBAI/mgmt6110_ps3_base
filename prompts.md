@@ -457,3 +457,69 @@ The pattern in the first three rows is the same: **the description of the work w
 ---
 
 `This was so much fun. Looking to learn how to build more on extracting and synthesising the data we get from images, to optimise operations and finance together.`
+
+---
+
+## 11. Problem Set 3 — Disqus and Microsoft Clarity
+
+**Live link:** https://mgmt6110ps3base.vercel.app/  
+**Repository:** https://github.com/KeziahVickraman-MBAI/mgmt6110_ps3_base  
+**Full session log:** Also exported in `prompt_log.md`
+
+### Prompt 1 · Disqus Feedback Thread
+
+> ```text
+> * ROLE: You are a front-end developer working in my existing project. Add to it; do not rewrite what is already there.
+> 
+> * GOAL: Add a Disqus comment section to the bottom of my main page only, so that visitors can leave feedback on the product in a single thread.
+> 
+> * CONTEXT:
+> - My Disqus shortname is: overberg-ps3
+> - My live address is: https://mgmt6110ps3base.vercel.app/
+> 
+> * OUTPUT: A small component on the main page that loads the Disqus Universal Code once, with
+> page.url set to my full live address (https, and no query string) and page.identifier set to the fixed string "home". Put one short line above it inviting visitors to say what worked for them and what did not.
+> 
+> * GUARDRAILS: Load the Disqus script only once, even when the component re-renders. Mount it
+> on the main page only, so that every comment lands in one thread. 
+> **Do not change anything else on the page, and add no npm package without telling me why one is needed.
+> ```
+
+- **Implementation**: Created `src/comments.ts` with `renderCommentsSection()` and `initDisqus()`. Script loading is guarded to run only once, and `disqus_thread` DOM node is preserved across re-renders in `src/main.ts` so that searches and state updates do not churn the iframe.
+- **Commit**: `6462d21`
+
+### Prompt 2 · Microsoft Clarity & Privacy Notice
+
+> ```text
+> * ROLE: You are a front-end developer working in my existing project.
+> 
+> * GOAL: Add Microsoft Clarity to my product, together with a privacy notice that covers both Microsoft Clarity and Disqus.
+> 
+> * CONTEXT:
+> - My live address is: https://mgmt6110ps3base.vercel.app/
+> - Clarity gave me this tracking code:
+> <script type="text/javascript">
+>     (function(c,l,a,r,i,t,y){
+>         c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+>         t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+>         y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+>     })(window, document, "clarity", "script", "ylvadgh5kh");
+> </script>
+> 
+> * OUTPUT:
+> 1) Add the tracking code to the head of index.html, wrapped so that it runs only when
+>    window.location.hostname is exactly my live address's hostname. Keep the project ID
+>    inside the code exactly as Clarity provided it.
+> 2) Add this notice to the footer of every page, with the three links working:
+>    "This page uses Microsoft Clarity and Disqus, which use cookies to record how visitors
+>    use the site and to host comments. By using this page you agree that we and Microsoft
+>    may collect and use this data. See the Microsoft Privacy Statement
+>    (https://www.microsoft.com/privacy/privacystatement), the Disqus privacy policy
+>    (https://disqus.com/privacy-policy/) and the Disqus data sharing settings
+>    (https://disqus.com/data-sharing-settings/)."
+> 
+> * GUARDRAILS: Do not edit the project ID. Do not load the tracking code twice. Do not change anything else on the page.
+> ```
+
+- **Implementation**: Added Clarity script to `<head>` of `index.html` gated behind `window.location.hostname === "mgmt6110ps3base.vercel.app"`, keeping project ID `ylvadgh5kh` intact. Added combined privacy notice to the footer in `src/main.ts` with working links to Microsoft Privacy Statement, Disqus privacy policy, and Disqus data sharing settings.
+- **Commit**: `0364135`
