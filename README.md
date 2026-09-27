@@ -55,8 +55,13 @@ The satellite panel says what it is and is not: basemap imagery is an undated mo
 
 | File | What it holds |
 |---|---|
-| [`PROMPTS.md`](PROMPTS.md) | Every prompt, what came back, and what I changed next |
+| [`PROMPTS.md`](PROMPTS.md) | Every prompt, what came back, and what I changed next for **Problem Set 2**|
 | [`ASSESSMENT.md`](ASSESSMENT.md) | My criteria, marked honestly, including the ones I do not meet |
+| [`PROMPTS_LOG.md`](PROMPTS_LOG.md) | **Problem Set 3** Disqus and MS Clarity Prompt log |
+| [`PREDICTIONS.md`](PREDICTIONS.md) | **Problem Set 4 Part 1** -> my Predictions on Usability Heuristics (BEFORE groupmates review) |
+| [`FEEDBACK_LOG.md`](FEEDBACK_LOG.md) | **Problem Set 4 Part 2** -> my Feedback log on my groupmates webpages for their review |
+
+
 | `api/` | Five serverless functions — `company`, `satellite`, `news`, `prices`, `health` |
 | `evidence/` | Hand-captured responses, including the NASA outage log |
 
