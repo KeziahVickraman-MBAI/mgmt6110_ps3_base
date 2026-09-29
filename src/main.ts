@@ -1648,6 +1648,32 @@ function render() {
             : ''
         }
 
+        ${(() => {
+          const recent = readRecentCompanies();
+          if (recent.length === 0) return '';
+          return `
+        <!-- Recent companies, newest first. Replaces Quick test once there is history. -->
+        <div class="quick-picks">
+          <span>Recent:</span>
+          ${recent
+            .map(
+              (c) => `
+            <button
+              type="button"
+              data-recent-symbol="${esc(c.symbol)}"
+              class="quick-pick-btn"
+              title="${esc(c.name)} · ${esc(c.region)}"
+            >
+              ${esc(c.symbol)}
+            </button>
+          `
+            )
+            .join('')}
+          <button type="button" id="clear-recent-btn" class="quiet-toggle-btn">Clear</button>
+        </div>
+          `;
+        })()}
+        ${readRecentCompanies().length > 0 ? '' : `
         <!-- Quick suggestion pills for testing -->
         <div class="quick-picks">
           <span>Quick test:</span>
@@ -1665,6 +1691,7 @@ function render() {
             )
             .join('')}
         </div>
+        `}
       </section>
 
       <!-- HERO · SATELLITE (Full Width) -->
@@ -2089,7 +2116,7 @@ function render() {
           Overberg is a coursework prototype. Not financial advice.
         </p>
         <p class="footer-privacy">
-          This page uses Microsoft Clarity and Disqus, which use cookies to record how visitors use the site and to host comments. By using this page you agree that we and Microsoft may collect and use this data. See the <a href="https://www.microsoft.com/privacy/privacystatement" target="_blank" rel="noopener noreferrer">Microsoft Privacy Statement</a>, the <a href="https://disqus.com/privacy-policy/" target="_blank" rel="noopener noreferrer">Disqus privacy policy</a> and the <a href="https://disqus.com/data-sharing-settings/" target="_blank" rel="noopener noreferrer">Disqus data sharing settings</a>.
+          This page uses Microsoft Clarity and Disqus, which use cookies to record how visitors use the site and to host comments. By using this page you agree that we and Microsoft may collect and use this data. See the <a href="https://www.microsoft.com/privacy/privacystatement" target="_blank" rel="noopener noreferrer">Microsoft Privacy Statement</a>, the <a href="https://disqus.com/privacy-policy/" target="_blank" rel="noopener noreferrer">Disqus privacy policy</a> and the <a href="https://disqus.com/data-sharing-settings/" target="_blank" rel="noopener noreferrer">Disqus data sharing settings</a>. Your browser also keeps, on your device only, the last five companies you opened and a list of listings found to have no recent price data; press Clear beside Recent to remove the first, or clear this site's data in your browser to remove both.
         </p>
         <div class="footer-credits">
           <a href="https://www.theguardian.com" target="_blank" rel="noopener noreferrer">
@@ -2443,10 +2470,71 @@ function attachEventListeners() {
     };
   });
 
+  // Recent chips reopen the saved listing directly, like Quick test.
+  document.querySelectorAll('[data-recent-symbol]').forEach((btn) => {
+    (btn as HTMLElement).onclick = () => {
+      const sym = btn.getAttribute('data-recent-symbol');
+      const saved = readRecentCompanies().find((c) => c.symbol === sym);
+      if (!saved) return;
+      if (input) input.value = saved.symbol;
+      state.searchQuery = saved.symbol;
+      selectCompany(saved);
+    };
+  });
+
+  const clearRecentBtn = document.getElementById('clear-recent-btn');
+  if (clearRecentBtn) {
+    clearRecentBtn.onclick = () => {
+      clearRecentCompanies();
+      render();
+    };
+  }
+
   attachChartInteraction();
 }
 
 // Perform Company Search via api/company.js
+// The last few companies the user opened, newest first, in this browser only.
+// Each entry is the listing itself, so a chip reopens exactly that listing
+// without a company search (one Alpha Vantage request instead of two).
+const RECENT_KEY = 'overberg-recent-companies';
+const MAX_RECENT = 5;
+
+function readRecentCompanies(): CompanyMatch[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((c) => c && typeof c.symbol === 'string' && typeof c.name === 'string')
+      .slice(0, MAX_RECENT);
+  } catch {
+    return [];
+  }
+}
+
+function rememberRecentCompany(company: CompanyMatch): void {
+  try {
+    const entry: CompanyMatch = {
+      symbol: company.symbol,
+      name: company.name,
+      region: company.region,
+      facility: company.facility || null
+    };
+    const rest = readRecentCompanies().filter((c) => c.symbol !== entry.symbol);
+    localStorage.setItem(RECENT_KEY, JSON.stringify([entry, ...rest].slice(0, MAX_RECENT)));
+  } catch {
+    // Storage unavailable; the row keeps showing Quick test.
+  }
+}
+
+function clearRecentCompanies(): void {
+  try {
+    localStorage.removeItem(RECENT_KEY);
+  } catch {
+    // Nothing stored to clear.
+  }
+}
+
 // Listings this browser has already opened and found to have no price data.
 // Checking every match up front would spend up to five of the 25 daily Alpha
 // Vantage requests per search, so the pick list only knows what was seen.
@@ -2543,7 +2631,9 @@ async function performCompanySearch(query: string, autoSelectFirst = false) {
 }
 
 // Select a company and update all panels
-function selectCompany(company: CompanyMatch) {
+// fromUser is false only for the automatic default company on page load,
+// which must not appear under Recent.
+function selectCompany(company: CompanyMatch, fromUser = true) {
   // Reset expansion toggles on new lookup (compact by default)
   expansionState.news = false;
   expansionState.profile = false;
@@ -2563,6 +2653,7 @@ function selectCompany(company: CompanyMatch) {
     facility
   };
   state.searchMatches = []; // Clear pick list once picked
+  if (fromUser) rememberRecentCompany(state.selectedCompany);
   state.compareSymbol = null; // Reset comparison on primary company change
   state.compareState = 'idle';
   state.compareTiles = null;
@@ -2815,7 +2906,7 @@ async function init() {
   fetchHealth();
 
   // Load default demo company (WMT)
-  selectCompany(DEFAULT_COMPANY);
+  selectCompany(DEFAULT_COMPANY, false);
 }
 
 // Start application
