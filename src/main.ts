@@ -1400,18 +1400,18 @@ function render() {
   // free and describes the symbol actually on screen.
   const getPriceChipState = (): { dot: string; text: string } => {
     if (state.health && !state.health.price.keyConfigured) {
-      return { dot: 'status-dot-down', text: 'down' };
+      return { dot: 'status-dot-down', text: 'unavailable' };
     }
     switch (state.priceState) {
       case 'loaded':
       case 'empty':
         // The provider answered; "empty" is a fact about the symbol, not a fault.
-        return { dot: 'status-dot-up', text: 'up' };
+        return { dot: 'status-dot-up', text: 'available' };
       case 'rate-limited':
-        return { dot: 'status-dot-slate', text: 'degraded' };
+        return { dot: 'status-dot-slate', text: 'limited' };
       case 'refused':
       case 'unreachable':
-        return { dot: 'status-dot-down', text: 'down' };
+        return { dot: 'status-dot-down', text: 'unavailable' };
       default:
         return { dot: 'status-dot-slate', text: 'checking…' };
     }
@@ -1430,28 +1430,28 @@ function render() {
       // Like the price chip, a resolved request for the facility on screen
       // outranks the page-load health probe.
       dotClass = 'status-dot-up';
-      statusText = 'up';
+      statusText = 'available';
     } else if (
       providerKey === 'satellite' &&
       (state.satelliteState === 'refused' || state.satelliteState === 'unreachable')
     ) {
       dotClass = 'status-dot-down';
-      statusText = 'down';
+      statusText = 'unavailable';
     } else {
       const p = state.health ? state.health[providerKey] : null;
       if (p) {
         if (p.state === 'up') {
           dotClass = 'status-dot-up';
-          statusText = 'up';
+          statusText = 'available';
         } else if (p.state === 'degraded') {
           dotClass = 'status-dot-slate';
-          statusText = 'degraded';
+          statusText = 'limited';
         } else if (p.state === 'unknown') {
           dotClass = 'status-dot-slate';
           statusText = 'checking…';
         } else {
           dotClass = 'status-dot-down';
-          statusText = 'down';
+          statusText = 'unavailable';
         }
       }
     }
@@ -1942,7 +1942,17 @@ function render() {
           </div>
 
           <div class="panel-bottom-bar">
-            <span>Daily closes (compact)</span>
+            <span>${(() => {
+              // Daily closes are end-of-day and cached for up to a day, so say
+              // which close this is and when it was fetched.
+              const pd = state.priceData;
+              if (!pd?.prices?.length || !pd.lastRefreshed || !pd.cachedAt) return 'Daily closes (compact)';
+              const fetched = new Date(pd.cachedAt);
+              if (isNaN(fetched.getTime())) return 'Daily closes (compact)';
+              const sameDay = fetched.toDateString() === new Date().toDateString();
+              const when = `${sameDay ? '' : `${shortDate(pd.cachedAt)} `}${formatTime(pd.cachedAt)}`;
+              return `End-of-day closes · latest close ${esc(formatDate(pd.lastRefreshed))} · fetched ${esc(when)}`;
+            })()}</span>
             <span class="panel-attribution">Alpha Vantage</span>
           </div>
         </section>
