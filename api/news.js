@@ -43,10 +43,20 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Search the company name in quotes to prevent broad unquoted token matching
+    // Search the everyday name ("Apple", not "Apple Inc"): the Guardian rarely
+    // prints the legal suffix, so the exact legal name mostly matched articles
+    // that mention the company in passing. Same stripping as the page's
+    // cleanName(), plus the dangling "&" it leaves on "JPMorgan Chase & Co".
+    const everydayName =
+      q
+        .replace(/,?\s*(Inc\.?|Corp\.?|Corporation|Co\.?|LLC|Ltd\.?|plc|Company)$/i, '')
+        .replace(/\s*&$/, '')
+        .trim() || q;
+    // Quoted, and matched against headlines only, so a result is about the
+    // company rather than merely mentioning it.
     // Request up to 25 items to ensure enough results remain after excluding affiliate sections
-    const quotedQuery = `"${q}"`;
-    const guardianUrl = `https://content.guardianapis.com/search?q=${encodeURIComponent(quotedQuery)}&show-fields=body&order-by=newest&page-size=25&api-key=${encodeURIComponent(apiKey)}`;
+    const quotedQuery = `"${everydayName}"`;
+    const guardianUrl = `https://content.guardianapis.com/search?q=${encodeURIComponent(quotedQuery)}&query-fields=headline&show-fields=body&order-by=newest&page-size=25&api-key=${encodeURIComponent(apiKey)}`;
 
     let response;
     try {

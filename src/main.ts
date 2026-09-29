@@ -1321,7 +1321,7 @@ function renderCrossPanelSynthesis(): string {
       }
     }
     if (topSection) {
-      clauses.push(`recent coverage concentrated in ${topSection}`);
+      clauses.push(`coverage concentrated in ${topSection}`);
     }
   }
 
@@ -1930,11 +1930,28 @@ function render() {
         <!-- PANEL D · NEWS -->
         <section id="panel-news" class="instrument-section news-panel-body ${state.newsState === 'loading' ? 'is-loading' : ''}">
           <div class="panel-header-bar">
-            <h2 class="panel-heading">Recent coverage${
+            <h2 class="panel-heading">Coverage${
               comp ? `<span class="panel-heading-ticker"> · ${esc(symbol)}</span>` : ''
             }</h2>
             <span class="panel-attribution">The Guardian · Summary Only Licence</span>
           </div>
+
+          ${(() => {
+            // Say so when even the newest result is old, so a dated list is
+            // never read as current.
+            if (state.newsState !== 'loaded' || state.newsItems.length === 0) return '';
+            const times = state.newsItems
+              .map((item) => new Date(item.date).getTime())
+              .filter((t) => !Number.isNaN(t));
+            if (times.length === 0) return '';
+            const days = Math.floor((Date.now() - Math.max(...times)) / (24 * 60 * 60 * 1000));
+            if (days <= 90) return '';
+            return `
+              <div style="margin-top: 0.5rem; font-size: 0.72rem; color: var(--down); padding: 0.25rem 0;">
+                Nothing in the last 90 days; newest article is ${days} days old.
+              </div>
+            `;
+          })()}
 
           ${(() => {
             if (state.newsState === 'loading') {
