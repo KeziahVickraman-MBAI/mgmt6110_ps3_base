@@ -1079,6 +1079,20 @@ input {
   outline-offset: 2px;
 }
 
+.synthesis-description {
+  margin: 0.4rem 0 0;
+  font-size: 0.75rem;
+  color: var(--slate);
+  line-height: 1.4;
+}
+
+.synthesis-heading {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0 0 1.5rem;
+}
+
 /* The band runs the full content width and expands beneath the button. */
 .synthesis-band {
   margin-top: 1rem;

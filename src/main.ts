@@ -884,9 +884,12 @@ function priceSynthesisGroup(): SynthesisGroup | null {
   if (max > min) {
     const pct = ((last - min) / (max - min)) * 100;
     const inTopHalf = pct > 50;
+    // The percentage is a share of the low-to-high range, not of the price.
     rows.push({
-      figure: inTopHalf ? `Top ${Math.round(100 - pct)}%` : `Bottom ${Math.round(pct)}%`,
-      label: `Position in its ${prices.length}-day range, closed $${last.toFixed(2)}`,
+      figure: inTopHalf ? `${Math.round(100 - pct)}% from high` : `${Math.round(pct)}% from low`,
+      label: inTopHalf
+        ? `Last close ($${last.toFixed(2)}) sits ${Math.round(100 - pct)}% of the way down from its ${prices.length}-day high toward its low`
+        : `Last close ($${last.toFixed(2)}) sits ${Math.round(pct)}% of the way up from its ${prices.length}-day low toward its high`,
       tone: inTopHalf ? 'up' : 'ink'
     });
   }
@@ -912,7 +915,7 @@ function priceSynthesisGroup(): SynthesisGroup | null {
   if (worst < 0) {
     rows.push({
       figure: `${(Math.abs(worst) * 100).toFixed(1)}%`,
-      label: `Maximum drawdown, ${shortDate(prices[worstPeakIdx].date)} to ${shortDate(prices[worstTroughIdx].date)}`,
+      label: `Largest fall from a high, ${shortDate(prices[worstPeakIdx].date)} to ${shortDate(prices[worstTroughIdx].date)}`,
       tone: 'down'
     });
   }
@@ -925,7 +928,7 @@ function priceSynthesisGroup(): SynthesisGroup | null {
     const annualised = Math.sqrt(variance) * Math.sqrt(252) * 100;
     rows.push({
       figure: `${annualised.toFixed(1)}%`,
-      label: `Realised volatility, annualised from ${returns.length} daily returns`,
+      label: `How much the price swings day to day, as a yearly rate, from ${returns.length} daily returns`,
       tone: 'ink'
     });
   }
@@ -1030,7 +1033,7 @@ function siteSynthesisGroup(): SynthesisGroup | null {
   const rows: SynthesisRow[] = [
     {
       figure: `${ordinal(rank)} of ${mapped.length}`,
-      label: 'Rank by footprint among mapped sites',
+      label: `${ordinal(rank)} largest of the ${mapped.length} sites with a recorded footprint`,
       tone: 'ink'
     },
     {
@@ -1257,7 +1260,6 @@ function renderSynthesisSection(): string {
             .join('')}
         </div>
         ${droppedHtml}
-        <p class="synthesis-note">Computed from the data on this page. No inference, no external model.</p>
       `;
 
   return `
@@ -1268,14 +1270,21 @@ function renderSynthesisSection(): string {
         class="synthesize-btn"
         aria-expanded="${isOpen ? 'true' : 'false'}"
         aria-controls="synthesis-output"
+        aria-describedby="synthesis-description"
       >
-        Synthesize
+        Summarise key stats
       </button>
+      <p id="synthesis-description" class="synthesis-description">
+        Calculated from the price, coverage and site data on this page. No AI, no external model.
+      </p>
       <div
         id="synthesis-output"
         class="synthesis-band ${isOpen ? 'is-expanded' : 'is-collapsed'}"
         ${isOpen ? '' : 'hidden'}
       >
+        <h2 class="synthesis-heading">Key stats${
+          state.selectedCompany ? ` · ${esc(state.selectedCompany.symbol)}` : ''
+        }</h2>
         ${body}
       </div>
     </section>
