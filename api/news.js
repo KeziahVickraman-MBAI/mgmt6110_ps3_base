@@ -51,6 +51,8 @@ export default async function handler(req, res) {
       q
         .replace(/,?\s*(Inc\.?|Corp\.?|Corporation|Co\.?|LLC|Ltd\.?|plc|Company)$/i, '')
         .replace(/\s*&$/, '')
+        // "Salesforce.com Inc" / "Amazon.com Inc": headlines say "Salesforce", "Amazon".
+        .replace(/\.com$/i, '')
         .trim() || q;
     // Quoted, and matched against headlines only, so a result is about the
     // company rather than merely mentioning it.
