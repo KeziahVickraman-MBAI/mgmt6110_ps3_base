@@ -1406,6 +1406,17 @@ function render() {
       const derived = getPriceChipState();
       dotClass = derived.dot;
       statusText = derived.text;
+    } else if (providerKey === 'satellite' && state.satelliteState === 'loaded') {
+      // Like the price chip, a resolved request for the facility on screen
+      // outranks the page-load health probe.
+      dotClass = 'status-dot-up';
+      statusText = 'up';
+    } else if (
+      providerKey === 'satellite' &&
+      (state.satelliteState === 'refused' || state.satelliteState === 'unreachable')
+    ) {
+      dotClass = 'status-dot-down';
+      statusText = 'down';
     } else {
       const p = state.health ? state.health[providerKey] : null;
       if (p) {
@@ -1639,11 +1650,6 @@ function render() {
           <div class="panel-header-bar">
             <div>
               <h2 class="panel-heading">Main facility</h2>
-              ${
-                state.satelliteFallback
-                  ? `<p style="font-size: 0.72rem; color: var(--down); margin: 0.2rem 0 0 0;">Landsat unavailable — showing basemap imagery.</p>`
-                  : ''
-              }
             </div>
 
             <!-- Three Provider Status Chips -->
