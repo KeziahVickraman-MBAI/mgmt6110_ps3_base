@@ -692,8 +692,33 @@ function computeRatioLine(
   };
 }
 
-function renderRatioLine(ratio: RatioLine | null): string {
-  if (!ratio) return '';
+// The ratio slot is never left empty: the compare grid has three columns, and
+// an empty middle slot drops the second image into the narrow ratio track.
+function missingFootprintLine(
+  primaryName: string,
+  primaryFacility: Facility | FacilityEntry | null | undefined,
+  compareFacility: FacilityEntry | null | undefined
+): string {
+  const hasFootprint = (f: Facility | FacilityEntry | null | undefined) =>
+    typeof f?.footprintHa === 'number' && f.footprintHa > 0;
+  // cleanName leaves a dangling "&" on names like "JPMorgan Chase & Co".
+  const label = (n: string) => cleanName(n).replace(/\s*&$/, '');
+  const missing: string[] = [];
+  if (!hasFootprint(primaryFacility)) missing.push(label(primaryName));
+  if (!hasFootprint(compareFacility)) missing.push(label(compareFacility?.name || 'this company'));
+  return `No footprint on record for ${missing.join(' or ')}, so the sites can't be compared by size.`;
+}
+
+function renderRatioLine(ratio: RatioLine | null, missingLine = ''): string {
+  if (!ratio) {
+    return missingLine
+      ? `
+    <div class="compare-ratio">
+      <span class="compare-ratio-text">${esc(missingLine)}</span>
+    </div>
+  `
+      : '';
+  }
   return `
     <div class="compare-ratio">
       <span class="compare-ratio-text">${esc(ratio.before)}</span>
@@ -1418,7 +1443,7 @@ function render() {
         class="quiet-toggle-btn"
         aria-expanded="false"
       >
-        Compare with…
+        Compare site with…
       </button>
     `
     : `
@@ -1427,7 +1452,7 @@ function render() {
         aria-label="Compare with another company facility"
         class="compare-select"
       >
-        <option value="">Select company to compare…</option>
+        <option value="">Compare site footprint with…</option>
         ${Object.values(FACILITIES)
           .filter((f) => f.symbol !== (state.selectedCompany?.symbol || ''))
           .map(
@@ -1657,7 +1682,10 @@ function render() {
               </div>
 
               <!-- Footprint ratio, centred between the pair -->
-              ${renderRatioLine(computeRatioLine(name, comp?.facility, FACILITIES[state.compareSymbol]))}
+              ${renderRatioLine(
+                computeRatioLine(name, comp?.facility, FACILITIES[state.compareSymbol]),
+                missingFootprintLine(name, comp?.facility, FACILITIES[state.compareSymbol])
+              )}
 
               <!-- Compared Company -->
               <div class="compare-column">
