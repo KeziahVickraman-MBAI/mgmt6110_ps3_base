@@ -1552,7 +1552,9 @@ function render() {
               <div style="padding: 0.35rem 0.85rem; background: rgba(27, 31, 26, 0.04); font-size: 0.72rem; color: var(--slate); border-bottom: 1px solid var(--rule);">
                 Select listing
               </div>
-              ${state.searchMatches
+              ${(() => {
+                const noPrice = readNoPriceSymbols();
+                return state.searchMatches
                 .map(
                   (m) => `
                 <button
@@ -1565,6 +1567,11 @@ function render() {
                     <span style="font-size: 0.85rem; color: var(--ink);" class="truncate">${esc(m.name)}</span>
                   </div>
                   <div class="flex items-center gap-2 shrink-0">
+                    ${
+                      noPrice[m.symbol]
+                        ? `<span style="font-size: 0.72rem; color: var(--slate);">No recent price data ·</span>`
+                        : ''
+                    }
                     <span style="font-size: 0.72rem; color: var(--slate);">${esc(m.region)}</span>
                     ${
                       m.facility
@@ -1575,7 +1582,8 @@ function render() {
                 </button>
               `
                 )
-                .join('')}
+                .join('');
+              })()}
             </div>
           `
             : ''
@@ -2355,6 +2363,38 @@ function attachEventListeners() {
 }
 
 // Perform Company Search via api/company.js
+// Listings this browser has already opened and found to have no price data.
+// Checking every match up front would spend up to five of the 25 daily Alpha
+// Vantage requests per search, so the pick list only knows what was seen.
+const NO_PRICE_KEY = 'overberg-no-price-data';
+
+function readNoPriceSymbols(): Record<string, true> {
+  try {
+    const raw = localStorage.getItem(NO_PRICE_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function rememberNoPrice(symbol: string, noData: boolean): void {
+  try {
+    const known = readNoPriceSymbols();
+    if (noData) known[symbol] = true;
+    else delete known[symbol];
+    localStorage.setItem(NO_PRICE_KEY, JSON.stringify(known));
+  } catch {
+    // Storage unavailable; the pick list simply keeps provider order.
+  }
+}
+
+// Stable sort: listings known to have no price data go last, order otherwise kept.
+function knownEmptyLast(matches: CompanyMatch[]): CompanyMatch[] {
+  const known = readNoPriceSymbols();
+  return [...matches].sort((a, b) => Number(!!known[a.symbol]) - Number(!!known[b.symbol]));
+}
+
 async function performCompanySearch(query: string, autoSelectFirst = false) {
   state.searchState = 'loading';
   state.searchMatches = [];
@@ -2399,7 +2439,7 @@ async function performCompanySearch(query: string, autoSelectFirst = false) {
     }
 
     const data = await res.json();
-    const matches: CompanyMatch[] = Array.isArray(data) ? data : data.matches || [];
+    const matches: CompanyMatch[] = knownEmptyLast(Array.isArray(data) ? data : data.matches || []);
 
     if (matches.length === 0) {
       state.searchState = 'empty';
@@ -2615,9 +2655,11 @@ async function fetchPrices(symbol: string) {
       state.priceState = 'empty';
       state.priceData = null;
       state.priceInactive = data.inactive ? { lastPriceDate: data.lastPriceDate ?? null } : null;
+      rememberNoPrice(symbol, true);
     } else {
       state.priceData = data;
       state.priceState = data.stale ? 'rate-limited' : 'loaded';
+      rememberNoPrice(symbol, false);
     }
   } catch {
     state.priceState = 'unreachable';
