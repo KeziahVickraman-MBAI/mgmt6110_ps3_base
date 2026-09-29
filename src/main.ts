@@ -943,7 +943,13 @@ function priceSynthesisGroup(): SynthesisGroup | null {
     });
   }
 
-  return rows.length > 0 ? { heading: 'Price', rows: rows.slice(0, MAX_ROWS_PER_COLUMN) } : null;
+  // Synthesize always reads the full series; the chart toggle only re-slices the chart.
+  return rows.length > 0
+    ? {
+        heading: `Price · last ${prices.length} trading days, not affected by the chart's 30d / 90d view`,
+        rows: rows.slice(0, MAX_ROWS_PER_COLUMN)
+      }
+    : null;
 }
 
 function coverageSynthesisGroup(): SynthesisGroup | null {
@@ -1008,7 +1014,12 @@ function coverageSynthesisGroup(): SynthesisGroup | null {
     });
   }
 
-  return rows.length > 0 ? { heading: 'Coverage', rows: rows.slice(0, MAX_ROWS_PER_COLUMN) } : null;
+  return rows.length > 0
+    ? {
+        heading: `Coverage · ${total} newest Guardian ${total === 1 ? 'article' : 'articles'}`,
+        rows: rows.slice(0, MAX_ROWS_PER_COLUMN)
+      }
+    : null;
 }
 
 function siteSynthesisGroup(): SynthesisGroup | null {
