@@ -30,6 +30,9 @@ interface PriceData {
   lastRefreshed?: string;
   stale?: boolean;
   cachedAt?: string;
+  // Set by /api/prices when the listing has no recent trading; prices is then empty.
+  inactive?: boolean;
+  lastPriceDate?: string | null;
 }
 
 interface NewsItem {
@@ -75,6 +78,9 @@ interface State {
   compareTiles: string[] | null;
   priceState: 'idle' | 'loading' | 'loaded' | 'empty' | 'rate-limited' | 'refused' | 'unreachable';
   priceData: PriceData | null;
+  // Present when priceState is 'empty' because the listing is not trading,
+  // rather than because the provider has no history for it at all.
+  priceInactive: { lastPriceDate: string | null } | null;
   priceRateLimitedTime: string | null;
   newsState: 'idle' | 'loading' | 'loaded' | 'empty' | 'refused' | 'unreachable';
   newsItems: NewsItem[];
@@ -118,6 +124,7 @@ const state: State = {
   compareTiles: null,
   priceState: 'idle',
   priceData: null,
+  priceInactive: null,
   priceRateLimitedTime: null,
   newsState: 'idle',
   newsItems: [],
@@ -1017,6 +1024,63 @@ function siteSynthesisGroup(): SynthesisGroup | null {
   return { heading: 'Site', rows: rows.slice(0, MAX_ROWS_PER_COLUMN) };
 }
 
+// The price panel's sentence for a series with nothing to plot. Shared with
+// the Synthesize note so both say the same thing.
+function priceEmptyLine(): string {
+  if (state.priceInactive) {
+    const last = state.priceInactive.lastPriceDate;
+    return last
+      ? `No recent trading recorded on this listing. Last price on record: ${formatDate(last)}.`
+      : 'No recent trading recorded on this listing.';
+  }
+  return 'No price history for this symbol. It may be delisted or not covered.';
+}
+
+// Why each column Synthesize could not compute is missing, in the words its
+// panel already uses. Returns '' when every column is present.
+function droppedSynthesisLine(
+  price: SynthesisGroup | null,
+  coverage: SynthesisGroup | null,
+  site: SynthesisGroup | null
+): string {
+  const reasons: string[] = [];
+
+  if (!price) {
+    const why: Record<string, string> = {
+      loading: 'Loading ninety days of closes…',
+      empty: priceEmptyLine(),
+      'rate-limited': 'Price data is rate-limited right now.',
+      refused: 'The price provider rejected our credential.',
+      unreachable: "Can't reach the price provider.",
+      loaded: 'Not enough closes to compute from.'
+    };
+    if (why[state.priceState]) reasons.push(`Price: ${why[state.priceState]}`);
+  }
+
+  if (!coverage) {
+    const why: Record<string, string> = {
+      loading: 'Searching recent coverage…',
+      empty: 'No Guardian coverage of this company in the archive.',
+      refused: 'The Guardian rejected our credential.',
+      unreachable: "Can't reach the Guardian."
+    };
+    if (why[state.newsState]) reasons.push(`Coverage: ${why[state.newsState]}`);
+  }
+
+  if (!site) {
+    const why: Record<string, string> = {
+      loading: 'Fetching imagery…',
+      'no-facility': "We don't have a mapped facility for this company.",
+      refused: 'Provider rejected our credential.',
+      unreachable: "Can't reach satellite imagery service.",
+      loaded: 'No footprint entered for this facility.'
+    };
+    if (why[state.satelliteState]) reasons.push(`Site: ${why[state.satelliteState]}`);
+  }
+
+  return reasons.length > 0 ? `Not computed. ${reasons.join(' ')}` : '';
+}
+
 function renderSynthesisRow(row: SynthesisRow): string {
   const toneClass = row.tone === 'up' ? 'syn-up' : row.tone === 'down' ? 'syn-down' : '';
   return `
@@ -1142,13 +1206,18 @@ function renderSignupSection(): string {
 
 function renderSynthesisSection(): string {
   const isOpen = expansionState.synthesis;
-  const groups = [priceSynthesisGroup(), coverageSynthesisGroup(), siteSynthesisGroup()].filter(
+  const priceGroup = priceSynthesisGroup();
+  const coverageGroup = coverageSynthesisGroup();
+  const siteGroup = siteSynthesisGroup();
+  const groups = [priceGroup, coverageGroup, siteGroup].filter(
     (g): g is SynthesisGroup => g !== null
   );
+  const dropped = droppedSynthesisLine(priceGroup, coverageGroup, siteGroup);
+  const droppedHtml = dropped ? `<p class="synthesis-pending synthesis-dropped">${esc(dropped)}</p>` : '';
 
   const body =
     groups.length === 0
-      ? `<p class="synthesis-pending">No panel has resolved figures to compute from yet.</p>`
+      ? `<p class="synthesis-pending">No panel has resolved figures to compute from yet.</p>${droppedHtml}`
       : `
         <div class="synthesis-columns">
           ${groups
@@ -1162,6 +1231,7 @@ function renderSynthesisSection(): string {
             )
             .join('')}
         </div>
+        ${droppedHtml}
         <p class="synthesis-note">Computed from the data on this page. No inference, no external model.</p>
       `;
 
@@ -1749,7 +1819,7 @@ function render() {
 
               if (state.priceState === 'empty') {
                 return `
-                  <div class="panel-failed-line">No price history for this symbol. It may be delisted or not covered.</div>
+                  <div class="panel-failed-line">${esc(priceEmptyLine())}</div>
                 `;
               }
 
@@ -2506,6 +2576,7 @@ async function fetchSatellite(company: CompanyMatch) {
 async function fetchPrices(symbol: string) {
   state.priceState = 'loading';
   state.priceData = null;
+  state.priceInactive = null;
   render();
 
   try {
@@ -2543,6 +2614,7 @@ async function fetchPrices(symbol: string) {
     if (!data.prices || data.prices.length === 0) {
       state.priceState = 'empty';
       state.priceData = null;
+      state.priceInactive = data.inactive ? { lastPriceDate: data.lastPriceDate ?? null } : null;
     } else {
       state.priceData = data;
       state.priceState = data.stale ? 'rate-limited' : 'loaded';

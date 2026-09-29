@@ -12,6 +12,22 @@ const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const FRESH_CACHE_HEADER = 'public, s-maxage=86400, max-age=86400';
 const STALE_CACHE_HEADER = 'public, s-maxage=300, max-age=60';
 
+// A listing counts as trading only if its latest real close is within this
+// many calendar days. Fourteen clears long holiday weekends and provider lag
+// while still catching series that stopped years ago.
+const RECENT_TRADING_DAYS = 14;
+
+function cachedBody(symbol, cached, stale) {
+  return {
+    symbol,
+    prices: cached.prices,
+    lastRefreshed: cached.lastRefreshed,
+    ...(cached.inactive ? { inactive: true, lastPriceDate: cached.lastPriceDate } : {}),
+    stale,
+    cachedAt: cached.cachedAt
+  };
+}
+
 export default async function handler(req, res) {
   const symbol = (req.query?.symbol || '').trim().toUpperCase();
 
@@ -37,13 +53,7 @@ export default async function handler(req, res) {
   // Serve fresh cache if available within 24h
   if (isFresh) {
     res.setHeader('Cache-Control', FRESH_CACHE_HEADER);
-    return res.status(200).json({
-      symbol,
-      prices: cached.prices,
-      lastRefreshed: cached.lastRefreshed,
-      stale: false,
-      cachedAt: cached.cachedAt
-    });
+    return res.status(200).json(cachedBody(symbol, cached, false));
   }
 
   const fetchPrices = async () => {
@@ -70,13 +80,7 @@ export default async function handler(req, res) {
       // Check if we have stale cache to serve
       if (cached) {
         res.setHeader('Cache-Control', STALE_CACHE_HEADER);
-        return res.status(200).json({
-          symbol,
-          prices: cached.prices,
-          lastRefreshed: cached.lastRefreshed,
-          stale: true,
-          cachedAt: cached.cachedAt
-        });
+        return res.status(200).json(cachedBody(symbol, cached, true));
       }
 
       if (result.status === 401 || result.status === 403) {
@@ -97,13 +101,7 @@ export default async function handler(req, res) {
     if (payload?.Information || payload?.Note) {
       if (cached) {
         res.setHeader('Cache-Control', STALE_CACHE_HEADER);
-        return res.status(200).json({
-          symbol,
-          prices: cached.prices,
-          lastRefreshed: cached.lastRefreshed,
-          stale: true,
-          cachedAt: cached.cachedAt
-        });
+        return res.status(200).json(cachedBody(symbol, cached, true));
       }
       return res.status(429).json({
         error: 'rate_limited',
@@ -138,7 +136,9 @@ export default async function handler(req, res) {
     for (const d of sortedDatesAsc) {
       const closeRaw = timeSeries[d]?.['4. close'];
       const closeNum = Number(closeRaw);
-      if (!Number.isNaN(closeNum) && Number.isFinite(closeNum)) {
+      // A close of 0 or below is a placeholder for a day with no trade, not a
+      // price. Plotting it draws a crash that never happened.
+      if (Number.isFinite(closeNum) && closeNum > 0) {
         prices.push({
           date: d,
           close: closeNum
@@ -146,16 +146,36 @@ export default async function handler(req, res) {
       }
     }
 
-    if (prices.length === 0) {
-      return res.status(200).json({
-        symbol,
-        prices: [],
-        stale: false
-      });
-    }
-
     const lastRefreshed = payload?.['Meta Data']?.['3. Last Refreshed'] || prices[prices.length - 1]?.date;
     const nowIso = new Date().toISOString();
+
+    // A series with no price change at all, or whose latest real close is old,
+    // has no trading behind it: every statistic drawn from it would describe
+    // a listing that is not trading. Say so instead of sending the series.
+    const hasMovement = prices.some((p, i) => i > 0 && p.close !== prices[i - 1].close);
+    const lastPriceDate =
+      dates.find((d) => {
+        const close = Number(timeSeries[d]?.['4. close']);
+        return Number.isFinite(close) && close > 0;
+      }) || null;
+    const lastPriceMs = lastPriceDate ? Date.parse(lastPriceDate) : NaN;
+    const isRecent =
+      Number.isFinite(lastPriceMs) &&
+      Date.now() - lastPriceMs <= RECENT_TRADING_DAYS * 24 * 60 * 60 * 1000;
+
+    if (!hasMovement || !isRecent) {
+      const entry = {
+        prices: [],
+        inactive: true,
+        lastPriceDate,
+        lastRefreshed,
+        cachedAt: nowIso,
+        timestamp: Date.now()
+      };
+      priceCache.set(symbol, entry);
+      res.setHeader('Cache-Control', FRESH_CACHE_HEADER);
+      return res.status(200).json(cachedBody(symbol, entry, false));
+    }
 
     priceCache.set(symbol, {
       prices,
@@ -175,13 +195,7 @@ export default async function handler(req, res) {
   } catch (err) {
     if (cached) {
       res.setHeader('Cache-Control', STALE_CACHE_HEADER);
-      return res.status(200).json({
-        symbol,
-        prices: cached.prices,
-        lastRefreshed: cached.lastRefreshed,
-        stale: true,
-        cachedAt: cached.cachedAt
-      });
+      return res.status(200).json(cachedBody(symbol, cached, true));
     }
     return res.status(502).json({
       error: 'unreachable',
