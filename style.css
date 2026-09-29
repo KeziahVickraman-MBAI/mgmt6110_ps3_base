@@ -587,6 +587,18 @@ input {
   color: #FF8F80;
 }
 
+/* Sits beside the headline figure, much smaller, so the figure stays dominant. */
+.hero-change-label {
+  display: inline-block;
+  margin-left: 0.6rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: #D2D6CC;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+  vertical-align: middle;
+}
+
 .hero-last-close-line {
   font-size: 0.78rem;
   color: #D2D6CC;

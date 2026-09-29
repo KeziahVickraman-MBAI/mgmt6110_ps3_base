@@ -1378,9 +1378,12 @@ function render() {
   let ninetyDayIsPos = true;
   let lastCloseVal: number | null = null;
   let lastCloseDateStr: string | null = null;
+  // Names the span the headline figure covers, from the series itself.
+  let changeLabelStr = '';
 
   if (state.priceData?.prices && state.priceData.prices.length > 1) {
     const prices = state.priceData.prices;
+    changeLabelStr = `Change since ${shortDate(prices[0].date)} · ${prices.length} trading days`;
     const firstClose = prices[0].close;
     const lastClose = prices[prices.length - 1].close;
     lastCloseVal = lastClose;
@@ -1744,7 +1747,7 @@ function render() {
                 ninetyDayDiffStr && lastCloseVal !== null
                   ? `
                 <div class="hero-price-change ${ninetyDayIsPos ? 'up' : 'down'}" style="font-size: 1.8rem; margin-top: 0.25rem;">
-                  ${ninetyDayDiffStr}
+                  ${ninetyDayDiffStr}<span class="hero-change-label" style="color: var(--slate); text-shadow: none;">${esc(changeLabelStr)}</span>
                 </div>
                 <div class="hero-last-close-line" style="color: var(--slate);">
                   Last close: <strong style="color: var(--ink);">$${lastCloseVal.toFixed(2)}</strong> · ${lastCloseDateStr}
@@ -1784,7 +1787,7 @@ function render() {
                     ninetyDayDiffStr && lastCloseVal !== null
                       ? `
                     <div class="hero-price-change ${ninetyDayIsPos ? 'up' : 'down'}">
-                      ${ninetyDayDiffStr}
+                      ${ninetyDayDiffStr}<span class="hero-change-label">${esc(changeLabelStr)}</span>
                     </div>
                     <div class="hero-last-close-line">
                       Last close: <strong>$${lastCloseVal.toFixed(2)}</strong> · ${lastCloseDateStr}
